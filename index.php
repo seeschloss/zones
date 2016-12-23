@@ -72,10 +72,18 @@ svg, canvas {
 
 h1 {
 	margin-top: 3px;
+	margin-bottom: 2px;
 	font-size: 150%;
 }
 
+h1.small {
+	font-size: 80%;
+	font-weight: normal;
+	margin: 3px 2em;
+}
+
 h2 {
+	margin-top: 1ex;
 	font-size: 200%;
 }
 
@@ -162,11 +170,13 @@ while (regions_answered.indexOf(region) >= 0 && regions_answered.length < region
 </script>
 
 <h1 id="question">Votre navigateur semble ne pas supporter JavaScript, c'est indispensable pour répondre à ce questionnaire</h1>
+<h1 class="small"></h1>
 <h2 id="nom-region">(ou alors il aurait fallu que je fasse vachement plus d'efforts que ce que j'étais prêt à faire)</h2>
 <script>
 
 var title = document.querySelector('h1#question');
 title.innerHTML = "Que représente pour vous la zone géographique suivante ?";
+document.querySelector("h1.small").innerHTML = "Sélectionnez les départements qui vous semblent correspondre à cette zone, ce n'est pas un quizz mais un sondage, il n'y a pas de bonnes ou de mauvaises réponses";
 
 var nom_region = document.querySelector('#nom-region');
 nom_region.innerHTML = region;

@@ -128,9 +128,9 @@ button#pass {
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://ssz.fr/zones">
 <meta property="og:title" content="Régions de France" />
-<meta property="og:image" content="http://render.sauf.ca/ssz.fr/zones" />
-<meta property="og:image:height" content="768" />
-<meta property="og:image:width"  content="1024" />
+<meta property="og:image" content="https://ssz.fr/zones/zones-small.png" />
+<meta property="og:image:height" content="293" />
+<meta property="og:image:width"  content="300" />
 <meta property="og:image:type" content="image/png" />
 <meta property="og:locale" content="fr_FR" />
 <meta property="og:description" content="Sondage sur les régions de France" />
