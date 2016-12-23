@@ -153,7 +153,8 @@ var regions = [
 	'Vallée du Rhône',
 	'Alpes',
 	'Bourgogne',
-	'Normandie'
+	'Normandie',
+	'Gascogne'
 ];
 
 if (localStorage) {
