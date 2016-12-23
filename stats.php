@@ -5,6 +5,10 @@ $stats = [];
 foreach (file(__DIR__.'/votes.tsv') as $line) {
 	list($region, $departements, $ip, $date, $ua, $action) = explode("\t", trim($line));
 
+	if ($region == "Vallée de la Loire") {
+		$region = "Val de Loire";
+	}
+
 	if (!isset($stats[$region])) {
 		$stats[$region] = [
 			'departements' => [],
@@ -197,7 +201,6 @@ percent_scale.domain(color_scale.domain());
 
 var color = function (departement) {
 	return color_scale(results[region].departements[departement]);
-
 };
 
 var width = 700,

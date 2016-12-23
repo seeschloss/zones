@@ -146,7 +146,14 @@ var regions = [
 	'Midi',
 	'Bretagne',
 	'Centre',
-	'Provence'
+	'Provence',
+	'Normandie',
+	'Alpes',
+	'Val de Loire',
+	'Vallée du Rhône',
+	'Alpes',
+	'Bourgogne',
+	'Normandie'
 ];
 
 if (localStorage) {
