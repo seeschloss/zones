@@ -9,9 +9,20 @@ foreach (file(__DIR__.'/votes.tsv') as $line) {
 		$region = "Val de Loire";
 	}
 
+	$geoip = geoip_record_by_name($ip);
+	if ($geoip and isset($geoip['postal_code']) and strlen($geoip['postal_code']) === 5) {
+		$origine = substr($geoip['postal_code'], 0, 2);
+	} else if ($geoip and !empty($geoip['country_code']) and $geoip['country_code'] != "FR") {
+		$origine = "Étranger";
+		//$origine = "Étranger (".$geoip['country_name'].")";
+	} else {
+		$origine = "Autres";
+	}
+
 	if (!isset($stats[$region])) {
 		$stats[$region] = [
 			'departements' => [],
+			'origine' => ['Autres' => []],
 		];
 	}
 
@@ -21,10 +32,34 @@ foreach (file(__DIR__.'/votes.tsv') as $line) {
 		}
 
 		$stats[$region]['departements'][$departement] += 1;
+
+		if (!isset($stats[$region]['origine'][$origine])) {
+			$stats[$region]['origine'][$origine] = [];
+		}
+
+		if (!isset($stats[$region]['origine'][$origine][$departement])) {
+			$stats[$region]['origine'][$origine][$departement] = 0;
+		}
+
+		$stats[$region]['origine'][$origine][$departement] += 1;
 	}
 }
 
 ksort($stats);
+
+foreach ($stats as $region => &$data) {
+	foreach ($data['origine'] as $origine => $reponses) {
+		if (array_sum($reponses) < 50) {
+			foreach ($data['origine'][$origine] as $departement => $count) {
+				if (!isset($data['origine']['Autres'][$departement])) {
+					$data['origine']['Autres'][$departement] = 0;
+				}
+				$data['origine']['Autres'][$departement] += $data['origine'][$origine][$departement];
+			}
+			unset($data['origine'][$origine]);
+		}
+	}
+}
 
 ?>
 <!DOCTYPE html>
@@ -56,7 +91,7 @@ svg, canvas {
 
 .departement {
 	fill: white;
-	stroke: grey;
+	stroke: rgba(0, 0, 0, 0.2);
 	cursor: pointer;
 }
 
@@ -67,6 +102,11 @@ svg, canvas {
 
 .departement.selected {
 	fill: #ABCDEF;
+}
+
+.departement.origine {
+	stroke-width: 2px;
+	stroke: red;
 }
 
 #credits {
@@ -122,6 +162,13 @@ button#pass {
 	content: ')';
 }
 
+label {
+	font-size: 50%;
+	font-weight: normal;
+	margin-left: 2em;
+	margin-right: 1ex;
+}
+
 </style>
 
 <title>Régions de France, sondage.</title>
@@ -172,8 +219,8 @@ nom_region.innerHTML = "";
 
 var results = <?php echo json_encode($stats); ?>
 
-var select = document.createElement('select');
-nom_region.appendChild(select);
+var select_zone = document.createElement('select');
+nom_region.appendChild(select_zone);
 
 var region = false;
 
@@ -185,8 +232,41 @@ for (var i in results) {
 	var option = document.createElement('option');
 	option.value = i;
 	option.innerHTML = i;
-	select.appendChild(option);
+	select_zone.appendChild(option);
 }
+
+var label_origine = document.createElement('label');
+label_origine.innerHTML = "ne voir que les résultats de&thinsp;:"
+nom_region.appendChild(label_origine);
+
+var select_origine = document.createElement('select');
+nom_region.appendChild(select_origine);
+
+var origine = false;
+
+var fillOrigines = function() {
+	var keys = d3.map(results[region].origine).keys().sort(d3.ascending);
+
+	select_origine.innerHTML = "";
+	var option = document.createElement('option');
+	option.value = "-1";
+	option.innerHTML = "Toutes les réponses";
+	select_origine.appendChild(option);
+
+	for (var i in keys) {
+		if (!origine) {
+			origine = false;
+		}
+
+		var key = keys[i];
+
+		var option = document.createElement('option');
+		option.value = key;
+		option.innerHTML = key;
+		select_origine.appendChild(option);
+	}
+};
+fillOrigines();
 
 var color_scale = d3.scale.pow().exponent(2)
 	.domain([0, 100])
@@ -200,7 +280,11 @@ color_scale.domain([0, d3.max(d3.map(results[region].departements).values())]);
 percent_scale.domain(color_scale.domain());
 
 var color = function (departement) {
-	return color_scale(results[region].departements[departement]);
+	if (origine === false || origine < 0) {
+		return color_scale(results[region].departements[departement]);
+	} else {
+		return color_scale(results[region].origine[origine][departement]);
+	}
 };
 
 var width = 700,
@@ -251,7 +335,16 @@ var dptHover = function(d) {
 
 	departement(this, function() { this.classList.add('hover'); });
 
-	showPopup(d3.event, this.dataset.code);
+	var code = 0;
+	if (this.dataset) {
+		code = this.dataset.code;
+	} else if (this.attributes) {
+		code = this.attributes['data-code'].value;
+	}
+
+	if (code) {
+		showPopup(d3.event, code);
+	}
 };
 
 var dptOut = function(d) {
@@ -261,7 +354,8 @@ var dptOut = function(d) {
 	departement(this, function() { this.classList.remove('hover'); });
 
 	if (popup) {
-		document.body.removeChild(popup);
+		popup.parentElement.removeChild(popup);
+		popup = null;
 	}
 };
 
@@ -315,27 +409,72 @@ queue()
 				.on('touchstart', function() {
 					var element = document.elementFromPoint(d3.event.touches[0].clientX, d3.event.touches[0].clientY);
 
+					if (popup) {
+						popup.parentElement.removeChild(popup);
+						popup = null;
+					}
+
 					if (element && element.tagName == 'path') {
 						d3.event.stopPropagation();
 						d3.event.preventDefault();
 
-						departement(element, function() { this.classList.toggle('selected'); });
+						var code = 0;
+						if (element.dataset) {
+							code = element.dataset.code;
+						} else if (element.attributes) {
+							code = element.attributes['data-code'].value;
+						}
+
+
+						if (code) {
+							showPopup(d3.event, code);
+						}
 					}
-				})
+				});
 
-				select.onchange = function(e) {
-					region = this.value;
+			select_zone.onchange = function(e) {
+				region = this.value;
+				origine = false;
+				fillOrigines();
+				showRegion(this.value);
+			};
 
-					color_scale.domain([0, d3.max(d3.map(results[region].departements).values())]);
-					percent_scale.domain(color_scale.domain());
+			select_origine.onchange = function(e) {
+				origine = this.value;
+				if (origine === false || origine < 0) {
+					showRegion(region);
+				} else {
+					showRegionOrigine(region, this.value);
+				}
+			};
 
-					svg.selectAll(".departement")
-						.style("fill", "white")
-						.style("fill", function(d) { return color(d.properties.gn_a1_code.substr(3)); })
-				};
+			var showRegion = function(region) {
+				color_scale.domain([0, d3.max(d3.map(results[region].departements).values())]);
+				percent_scale.domain(color_scale.domain());
+
+				svg.selectAll(".departement")
+					.style("fill", "white")
+					.style("fill", function(d) { return color(d.properties.gn_a1_code.substr(3)); })
+			};
+
+			var showRegionOrigine = function(region, origine) {
+				color_scale.domain([0, d3.max(d3.map(results[region].origine[origine]).values())]);
+				percent_scale.domain(color_scale.domain());
+
+				svg.selectAll(".departement.origine").classed('origine', false);
+				svg.selectAll(".departement[data-code='" + origine + "']").classed('origine', true);
+
+				svg.selectAll(".departement")
+					.style("fill", "white")
+					.style("fill", function(d) { return color(d.properties.gn_a1_code.substr(3)); })
+			};
 
 			showPopup = function(e, dpt) {
-				var reponses = results[region].departements[dpt];
+				if (origine === false || origine < 0) {
+					var reponses = results[region].departements[dpt];
+				} else {
+					var reponses = results[region].origine[origine][dpt];
+				}
 				var percent = Math.floor(percent_scale(reponses) * 100) / 100;
 
 				popup = document.createElement("div");
@@ -354,12 +493,20 @@ queue()
 						"<p class='dpt-resultats'>Inclus(s) dans <span class='reponses'>aucune</span> réponse";
 				}
 
-				popup.style.top = (e.clientY + 10) + "px";
-				popup.style.left = (e.clientX + 10) + "px";
+				if (e.touches) {
+					popup.style.top = (e.touches[0].clientY + 10) + "px";
+					popup.style.left = (e.touches[0].clientX + 10) + "px";
+					e.preventDefault();
+					e.stopPropagation();
+				} else {
+					popup.style.top = (e.clientY + 10) + "px";
+					popup.style.left = (e.clientX + 10) + "px";
+				}
 				document.body.appendChild(popup);
 			};
 		});
 });
+
 
 </script>
 </body>
