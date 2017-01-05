@@ -151,9 +151,7 @@ var regions = [
 	'Alpes',
 	'Val de Loire',
 	'Vallée du Rhône',
-	'Alpes',
 	'Bourgogne',
-	'Normandie',
 	'Gascogne'
 ];
 
@@ -170,9 +168,11 @@ if (localStorage) {
 	}
 }
 
+var ttl = regions.length * 20;
 var region = regions[Math.floor(Math.random() * regions.length)];
-while (regions_answered.indexOf(region) >= 0 && regions_answered.length < regions.length) {
+while (regions_answered.indexOf(region) >= 0 && regions_answered.length < regions.length && ttl > 0) {
 	region = regions[Math.floor(Math.random() * regions.length)];
+	ttl--;
 }
 
 </script>
